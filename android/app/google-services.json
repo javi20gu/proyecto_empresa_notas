@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "270806612534",
+    "firebase_url": "https://proyecto-empresas-notas.firebaseio.com",
+    "project_id": "proyecto-empresas-notas",
+    "storage_bucket": "proyecto-empresas-notas.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:270806612534:android:82d8f16d9a904e603af697",
+        "android_client_info": {
+          "package_name": "com.javierhc.proyecto_empresas_notas"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "270806612534-sm0hhcg5lv3v71u51ik3acjlcs685jjn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.javierhc.proyecto_empresas_notas",
+            "certificate_hash": "82eeb5713aff0a7c53cb1d3479e15f61bda4e845"
+          }
+        },
+        {
+          "client_id": "270806612534-nepkfth8to5dl5nncal57t1nechjo6vi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXSyFs3PUQwSQ1qfEUQBFK-yWyylnO5vI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "270806612534-nepkfth8to5dl5nncal57t1nechjo6vi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
