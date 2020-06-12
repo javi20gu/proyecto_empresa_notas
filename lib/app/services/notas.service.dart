@@ -1,93 +1,244 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity/connectivity.dart';
 import 'package:flutter/material.dart';
-import 'package:proyecto_empresas_notas/app/models/nota.model.dart';
-import 'package:proyecto_empresas_notas/app/models/usuario.model.dart';
-import 'package:proyecto_empresas_notas/app/util/shared_preferend.util.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:proyecto_empresas_notas/app/util/notificaction.util.dart';
+
+import '../models/nota._firebase.model.dart';
+import '../models/nota_db.model.dart';
+import '../util/db.util.dart';
+import '../util/db_firebase.util.dart';
+import '../util/enum_radio_list_tile.util.dart';
+import '../util/notificaction.util.dart';
+import '../util/shared_preferend.util.dart';
 
 class NoteService with ChangeNotifier {
-  final Firestore _firestore = Firestore.instance;
-  List<NotaModel> notas = [];
-  List<NotaModel> notasFavoritas = [];
-  final _sharedPreferences = SharedPreferend().sharedPreferences;
+  List<GetNotasModel> notas = [];
+
+  bool isFavoriteCheckBox = false;
+
+  FlutterLocalNotificationsPlugin get _flutterLocalNotificationsPlugin =>
+      FlutterLocalNotificationsPlugin();
+
+  Future<void> setIsFavoriteCheckBox(bool check) async {
+    isFavoriteCheckBox = check;
+    await _initNotes();
+  }
+
+  bool isFavorite = false;
+
+  FiltroOrdenar filtroOrdenar = FiltroOrdenar.descendente;
+
+  setfiltroOrdenar(FiltroOrdenar filtroOrdenarP) async {
+    filtroOrdenar = filtroOrdenarP;
+    await _initNotes();
+  }
 
   bool _isLoanding = true;
 
   bool get isLoanding => _isLoanding;
 
   NoteService() {
-    initNotes();
+    _initNotes();
   }
 
-  initNotes() async {
-    QuerySnapshot datosFirebaseStore = await _firestore
-        .collection("users")
-        .document(_sharedPreferences.getUsuario().uidUsuario)
-        .collection("notas")
-        .orderBy("fecha_creacion", descending: true)
-        .getDocuments();
-    final notasBase = datosFirebaseStore.documents.map((document) =>
-      NotaModel.fromMap(document.documentID, document.data)).toList();
-    notas = notasBase.where((nota) => nota.favorito == false).toList();
-    notasFavoritas = notasBase.where((nota) => nota.favorito == true).toList();
+  Future _initNotes() async {
+    List<GetNotasModel> baseNotas = await DBNotas.db.getNotas();
+
+    if (isFavoriteCheckBox) {
+      baseNotas = baseNotas.where((nota) => nota.isFavorite == 1).toList();
+    }
+
+    if (filtroOrdenar == FiltroOrdenar.descendente) {
+      baseNotas.sort((a, b) => DateTime.parse(b.fechaDeModificacion)
+          .compareTo(DateTime.parse(a.fechaDeModificacion)));
+    } else {
+      baseNotas.sort((a, b) => DateTime.parse(a.fechaDeModificacion)
+          .compareTo(DateTime.parse(b.fechaDeModificacion)));
+    }
+
+    notas = baseNotas;
     _isLoanding = false;
     notifyListeners();
   }
 
+  Future getNotasBackup() async {
+    _isLoanding = true;
+    notifyListeners();
+    final listaNotasFirebase = await DBFirebaseNota.getNotas();
+    final db = await DBNotas.db.database;
+    final batch = db.batch();
+    listaNotasFirebase.forEach((notaFirebase) {
+      batch.insert(
+          DBNotas.dbTableName,
+          AddNotaModel(
+            idNotaFirebase: notaFirebase.idNotaFirebase,
+            tituloNota: notaFirebase.tituloNota,
+            descripcionNota: notaFirebase.descripcionNota,
+            isFavorite: notaFirebase.isFavorito,
+            fechaDeRecordatorio: notaFirebase.fechaDeRecordatorio,
+          ).toMap());
+    });
+    batch.commit(noResult: true);
+    await _initNotes();
+  }
+
   addNotas(
-      {@required AddNoteFirebase notaFirebase,
-      @required UserSignInModel userSignInModel}) async {
+      {@required AddNotaModel notaModel,
+      @required String tituloNotaActual,
+      @required String descripcionNotaActual,
+      @required DateTime recordatorio}) async {
     _isLoanding = true;
     notifyListeners();
-    final Map<String, dynamic> notaFirebaseMap = notaFirebase.toMap();
-    await _firestore
-        .collection('users')
-        .document(userSignInModel.uidUsuario)
-        .collection('notas')
-        .add(notaFirebaseMap);
-    await initNotes();
+    final int id = await DBNotas.db.crearNota(notaModel);
+    final checkConexion = await Connectivity().checkConnectivity();
+    if (checkConexion == ConnectivityResult.wifi ||
+        checkConexion == ConnectivityResult.mobile) {
+      final autorNota =
+          SharedPreferend().sharedPreferences.getUsuario().nombreCompleto;
+      final datosBdLocal = await DBNotas.db.getNotaById(id);
+      final idFirebase = await DBFirebaseNota.addNotas(
+          notaFirebase: AddNotaModelFirebase(
+        idNota: id,
+        autorNota: autorNota,
+        tituloNota: tituloNotaActual,
+        descripcionNota: descripcionNotaActual,
+        fechaDeCreacion: datosBdLocal.fechaDeCreacion,
+        fechaDeModificacion: datosBdLocal.fechaDeModificacion,
+        fechaDeRecordatorio: recordatorio.toString(),
+      ));
+      DBNotas.db
+          .updateIdFirebase(idNotaFirebase: idFirebase.documentID, idNota: id);
+    }
+
+    if (recordatorio != null) {
+      await addRecordatorioNota(
+        id: id,
+        tituloNota: tituloNotaActual,
+        descripcionNota: descripcionNotaActual,
+        recordatorioNota: recordatorio,
+        flutterLocalNotificationsPlugin: _flutterLocalNotificationsPlugin,
+      );
+    }
+
+    await _initNotes();
     notifyListeners();
   }
 
-  editFavoriteNote({@required String idNota, @required EditFavoriteNoteFirebase editFavoriteNoteFirebase}) async{
+  updateNoteById(
+      {@required int idNota,
+      @required DateTime recordatorio,
+      @required EditNotaModel editNote}) async {
     _isLoanding = true;
     notifyListeners();
-    final usuario = _sharedPreferences.getUsuario();
-    final favoritoNotaMap = editFavoriteNoteFirebase.toMap();
-    await _firestore
-        .collection('users')
-        .document(usuario.uidUsuario)
-        .collection('notas')
-        .document(idNota)
-        .updateData(favoritoNotaMap);
-    await initNotes();
+    await DBNotas.db.updateNota(idNota, editNote);
+    final checkConexion = await Connectivity().checkConnectivity();
+
+    if (checkConexion == ConnectivityResult.wifi ||
+        checkConexion == ConnectivityResult.mobile) {
+      final nota = await DBNotas.db.getNotaById(idNota);
+      if (await DBFirebaseNota.getNotabyId(nota.idNotaFirebase) == null) {
+        final autorNota =
+            SharedPreferend().sharedPreferences.getUsuario().nombreCompleto;
+
+        final notaFirebase = await DBFirebaseNota.addNotas(
+            notaFirebase: AddNotaModelFirebase(
+          idNota: idNota,
+          autorNota: autorNota,
+          tituloNota: editNote.tituloNota,
+          descripcionNota: editNote.descripcionNota,
+          fechaDeRecordatorio: editNote.fechaDeRecordatorio,
+          fechaDeCreacion: nota.fechaDeCreacion,
+          fechaDeModificacion: nota.fechaDeModificacion,
+        ));
+        DBNotas.db.updateIdFirebase(
+            idNotaFirebase: notaFirebase.documentID, idNota: idNota);
+      } else {
+        DBFirebaseNota.editNota(
+            idNota: nota.idNotaFirebase,
+            editNoteFirebase: EditNoteFirebase(
+                tituloNota: editNote.tituloNota,
+                descripcionNota: editNote.descripcionNota,
+                fechaRecordatorio: recordatorio.toString()));
+      }
+    }
+    if (recordatorio != null) {
+      await _flutterLocalNotificationsPlugin.cancel(idNota);
+      await addRecordatorioNota(
+        id: idNota,
+        tituloNota: editNote.tituloNota,
+        descripcionNota: editNote.descripcionNota,
+        recordatorioNota: recordatorio,
+        flutterLocalNotificationsPlugin: _flutterLocalNotificationsPlugin,
+      );
+    }
+    await _initNotes();
   }
 
-  editNotes(
-      {@required String idNota,
-      @required EditNoteFirebase editNoteFirebase,
-      @required UserSignInModel userSignInModel}) async {
+  updateIsFavorite({@required int idNota, @required bool favorite}) async {
     _isLoanding = true;
     notifyListeners();
-    final Map<String, dynamic> notaFirebaseMap = editNoteFirebase.toMap();
-    await _firestore
-        .collection('users')
-        .document(userSignInModel.uidUsuario)
-        .collection('notas')
-        .document(idNota)
-        .updateData(notaFirebaseMap);
-    await initNotes();
+    await DBNotas.db
+        .updateNotaByIsFavorite(idNota: idNota, isFavorite: favorite);
+    final checkConexion = await Connectivity().checkConnectivity();
+    if (checkConexion == ConnectivityResult.wifi ||
+        checkConexion == ConnectivityResult.mobile) {
+      final nota = await DBNotas.db.getNotaById(idNota);
+      if (await DBFirebaseNota.getNotabyId(nota.idNotaFirebase) == null) {
+        final autorNota =
+            SharedPreferend().sharedPreferences.getUsuario().nombreCompleto;
+
+        final notaFirebase = await DBFirebaseNota.addNotas(
+            notaFirebase: AddNotaModelFirebase(
+          idNota: idNota,
+          autorNota: autorNota,
+          tituloNota: nota.tituloNota,
+          descripcionNota: nota.descripcionNota,
+          fechaDeRecordatorio: nota.fechaDeRecordatorio,
+          fechaDeCreacion: nota.fechaDeCreacion,
+          fechaDeModificacion: nota.fechaDeModificacion,
+          favorito: favorite ? 1 : 0,
+        ));
+        DBNotas.db.updateIdFirebase(
+            idNotaFirebase: notaFirebase.documentID, idNota: idNota);
+      } else {
+        DBFirebaseNota.editNotaFavoriteById(
+            idNota: nota.idNotaFirebase,
+            editFavoriteNoteFirebase: EditFavoriteNoteFirebase(
+              isFavorito: favorite ? 1 : 0,
+            ));
+      }
+    }
+    await _initNotes();
   }
 
-  deleteNotas({String idNota}) async {
+  updateDeleteRecordatorioNota(
+      {@required int idNota,
+      bool update = false,
+      String fechaRecordatorio}) async {
     _isLoanding = true;
     notifyListeners();
-    final String uidUsuario = _sharedPreferences.getUsuario().uidUsuario;
-    await _firestore
-        .collection('users')
-        .document(uidUsuario)
-        .collection('notas')
-        .document(idNota)
-        .delete();
-    await initNotes();
+    await DBNotas.db.updateDeleteRecordatorioNota(idNota,
+        update: update, fechaRecordatorio: fechaRecordatorio);
+    final checkConexion = await Connectivity().checkConnectivity();
+    if (checkConexion == ConnectivityResult.wifi ||
+        checkConexion == ConnectivityResult.mobile) {
+      final nota = await DBNotas.db.getNotaById(idNota);
+      DBFirebaseNota.editRecordatorioNota(
+          idNota: nota.idNotaFirebase, recordatorio: fechaRecordatorio);
+    }
+    await _initNotes();
+  }
+
+  deleteNota({String idNotaFirebase, @required int idNota}) async {
+    _isLoanding = true;
+    notifyListeners();
+    final nota = await DBNotas.db.getNotaById(idNota);
+    await DBNotas.db.deleteNotaById(idNota);
+    final checkConexion = await Connectivity().checkConnectivity();
+    if (checkConexion == ConnectivityResult.wifi ||
+        checkConexion == ConnectivityResult.mobile) {
+      DBFirebaseNota.deleteNotaById(idNota: nota.idNotaFirebase);
+    }
+    await _initNotes();
   }
 }

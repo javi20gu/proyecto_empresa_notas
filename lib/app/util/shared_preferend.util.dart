@@ -1,6 +1,7 @@
-
-import 'package:proyecto_empresas_notas/app/models/usuario.model.dart';
+import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/usuario.model.dart';
 
 class SharedPreferend {
   SharedPreferend._();
@@ -11,26 +12,30 @@ class SharedPreferend {
 
   SharedPreferences sharedPreferences;
 
-  Future<void> initDb() async => sharedPreferences = await SharedPreferences.getInstance();
+  Future<SharedPreferences> initDb() async =>
+      sharedPreferences = await SharedPreferences.getInstance();
 }
 
 extension NoteSharedPreferences on SharedPreferences {
   UserSignInModel getUsuario() {
-    dynamic valor = this.getString("usuario");
+    final String valor = this.getString('usuario');
     return (valor == null) ? null : UserSignInModel.fromJson(valor);
   }
 
   Future<bool> setUsuario({
-    String uidUsuario,
-    String email,
-    String nombreCompleto,
-    String fotoPerfil,
+    @required String uidUsuario,
+    @required bool isNewUser,
+    @required String email,
+    @required String nombreCompleto,
+    @required String fotoPerfil,
   }) {
     final String usuarioJson = UserSignInModel(
-        uidUsuario: uidUsuario,
-        email: email,
-        nombreCompleto: nombreCompleto,
-        fotoPerfil: fotoPerfil).toJson();
-    return this.setString("usuario", usuarioJson);
+            uidUsuario: uidUsuario,
+            isNewUser: isNewUser,
+            email: email,
+            nombreCompleto: nombreCompleto,
+            fotoPerfil: fotoPerfil)
+        .toJson();
+    return this.setString('usuario', usuarioJson);
   }
 }

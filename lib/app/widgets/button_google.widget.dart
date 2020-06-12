@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-
 class ButtonGoogleSignIn extends StatelessWidget {
-
-  final dynamic Function() onPressed; 
+  final dynamic Function() onPressed;
 
   const ButtonGoogleSignIn({Key key, this.onPressed}) : super(key: key);
 
@@ -11,29 +9,29 @@ class ButtonGoogleSignIn extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialButton(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(0),
-        side: BorderSide(color: Colors.black12)
-      ),
+          borderRadius: BorderRadius.circular(0),
+          side: const BorderSide(color: Color.fromRGBO(220, 222, 226, 1))),
       onPressed: onPressed,
       color: Colors.white,
-      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 15),
       child: Row(
         children: <Widget>[
-          Image(
+          const Image(
             image: AssetImage("assets/logos/google.png"),
-            height: (18*2.4),
+            height: (18 * 2.0),
           ),
-          SizedBox(width: 24),
-          Text("Iniciar sesión con Google",
+          const SizedBox(width: 10),
+          const Text(
+            "Iniciar sesión con Google",
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.w500,
               fontFamily: "Roboto",
-              color: Colors.black54,),)
+              color: Color.fromRGBO(95, 99, 104, 1),
+            ),
+          )
         ],
       ),
     );
   }
-
-
 }

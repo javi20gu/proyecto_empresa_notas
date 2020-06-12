@@ -1,0 +1,5 @@
+
+enum FiltroOrdenar {
+  ascendente,
+  descendente,
+}

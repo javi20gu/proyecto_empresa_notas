@@ -3,7 +3,7 @@ description: A new Flutter project.
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -23,13 +23,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  google_sign_in: ^4.4.4
-  firebase_auth: ^0.16.0
+  google_sign_in: ^4.5.1
+  firebase_auth: ^0.16.1
   shared_preferences: ^0.5.7
   cached_network_image: ^2.1.0+1
-  cloud_firestore: ^0.13.5
-  provider: ^4.0.5+1
+  cloud_firestore: ^0.13.6
+  provider: ^4.1.3
   animate_do: ^1.7.2
+  sqflite: ^1.3.0+2
+  path: ^1.6.4
+  path_provider: ^1.6.10
+  connectivity: ^0.4.8+6
+  firebase_crashlytics: ^0.1.3+3
+  app_settings: ^4.0.0
+  feature_discovery: ^0.10.0
+  flutter_local_notifications: ^1.4.4
+  timeago: ^2.0.26
+  after_layout: ^1.0.7+2
+  rxdart: ^0.24.1
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^0.1.3
@@ -43,18 +54,17 @@ flutter_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/images/bloc-de-notas.png"
+  adaptive_icon_background: "#ffffff"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-
 
   assets:
     - assets/images/bloc-de-notas.png
@@ -77,7 +87,6 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
 
-
   fonts:
     - family: Roboto
       fonts:
@@ -94,7 +103,6 @@ flutter:
       fonts:
         - asset: fonts/WorkSans-Bold.ttf
           weight: 700
-
   # fonts:
   #   - family: Schyler
   #     fonts:

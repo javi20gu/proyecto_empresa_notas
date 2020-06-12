@@ -1,56 +1,98 @@
-import 'package:firebase_auth/firebase_auth.dart'
-    show AuthCredential, FirebaseAuth, FirebaseUser, GoogleAuthProvider;
-import 'package:flutter/cupertino.dart';
+import 'package:app_settings/app_settings.dart';
+import 'package:connectivity/connectivity.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart'
-    show GoogleSignIn, GoogleSignInAccount, GoogleSignInAuthentication;
-import 'package:proyecto_empresas_notas/app/util/shared_preferend.util.dart';
-import 'package:proyecto_empresas_notas/app/widgets/button_google.widget.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart'
     show SharedPreferences;
+
+import '../routes/routes.dart';
+import '../util/shared_preferend.util.dart';
+import '../widgets/button_google.widget.dart';
 
 class UiPresentation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        body: SafeArea(
-      child: Column(
-        children: <Widget>[
-          _titulo(),
-          Image(
-            height: 150,
-            image: AssetImage("assets/images/bloc-de-notas.png"),
-          ),
-          _botonGoogle(context),
-        ],
+    final height = MediaQuery.of(context).size.height * 0.05;
+    final subtitle = Theme.of(context).textTheme.subtitle1.apply(
+          color: Colors.black54,
+        );
+    return Scaffold(body: SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constrains) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constrains.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: <Widget>[
+                    _titulo(context),
+                    Text(
+                      'Guarde y administre sus notas personales\n'
+                      'De forma simple, sencilla y cómoda\n'
+                      'Para empezar solo tendrás que iniciar sesión\n'
+                      'Para así sincronizar tus notas en la nube\n'
+                      '¡Y nunca perderlas!',
+                      style: subtitle,
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(
+                      height: height,
+                    ),
+                    ColorFiltered(
+                      colorFilter: ColorFilter.mode(
+                          Colors.white12, BlendMode.luminosity),
+                      child: Image(
+                        height: _getSizeImage(context),
+                        image: AssetImage('assets/images/bloc-de-notas.png'),
+                      ),
+                    ),
+                    if (MediaQuery.of(context).orientation ==
+                        Orientation.landscape)
+                      const SizedBox(
+                        height: 100,
+                      ),
+                    _botonGoogle(context),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     ));
   }
 
-  Expanded _botonGoogle(BuildContext context) {
-    return Expanded(
-          child: Align(
-            alignment: FractionalOffset.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0.0),
-              child: ButtonGoogleSignIn(onPressed: () => _signIn(context)),
-            ),
-          ),
-        );
+  double _getSizeImage(BuildContext context) {
+    final height = MediaQuery.of(context).size.height;
+    if (height <= 592.0) {
+      return 225;
+    }
+    return 275;
   }
 
-  Widget _titulo() {
+  Expanded _botonGoogle(BuildContext context) => Expanded(
+        child: Align(
+          alignment: FractionalOffset.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 0.0),
+            child: ButtonGoogleSignIn(onPressed: () => _signIn(context)),
+          ),
+        ),
+      );
+
+  Widget _titulo(BuildContext context) {
+    final double height = MediaQuery.of(context).size.height * 0.08;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60.0),
-      child: Center(
-        child: Text("FootNote",
+      padding: EdgeInsets.only(top: height, bottom: height * 0.25),
+      child: const Center(
+        child: Text('FootNote',
             style: TextStyle(
-                fontSize: 50,
+                fontSize: 44,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 3,
-                fontFamily: "Roboto Black",
-                color: Colors.black87)),
+                letterSpacing: 4,
+                fontFamily: 'Roboto Black',
+                color: Color.fromRGBO(32, 33, 36, 1))),
       ),
     );
   }
@@ -60,44 +102,77 @@ class UiPresentation extends StatelessWidget {
         SharedPreferend().sharedPreferences;
     final FirebaseAuth _auth = FirebaseAuth.instance;
     final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: [
-      "email",
-      "profile",
+      'email',
+      'profile',
     ]);
-    try {
-      assert (true == false);
-      await _googleSignIn.signOut();
-      final GoogleSignInAccount googleSignInAccount =
-          await _googleSignIn.signIn();
-      final GoogleSignInAuthentication googleSignInAuthentication =
-          await googleSignInAccount.authentication;
+    final isInternet = await (Connectivity().checkConnectivity());
+    if (isInternet == ConnectivityResult.none) {
+      await showDialog(
+          context: context,
+          child: _dialogoAlert(
+              'No dispones de Internet, verifique su internet', context,
+              isNotInternet: true));
+    } else {
+      try {
+        await _auth.signOut();
+        await _googleSignIn.signOut();
+        final GoogleSignInAccount googleUser = await _googleSignIn.signIn();
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
 
-      final AuthCredential credential = GoogleAuthProvider.getCredential(
-        accessToken: googleSignInAuthentication.accessToken,
-        idToken: googleSignInAuthentication.idToken,
-      );
-      final FirebaseUser user =
-          (await _auth.signInWithCredential(credential)).user;
-      _sharedPreferend.setUsuario(
-          uidUsuario: user.uid,
-          email: user.email,
-          nombreCompleto: user.displayName,
-          fotoPerfil: user.photoUrl);
-      await Navigator.of(context).pushReplacementNamed("inicio");
-    } catch (error) {
-      await showDialog(context: context, child: _dialogoAlert(error, context));
+        final AuthCredential credential = GoogleAuthProvider.getCredential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final AuthResult authResult =
+            await _auth.signInWithCredential(credential);
+        final bool isNewUser = authResult.additionalUserInfo.isNewUser;
+        _sharedPreferend.setUsuario(
+            uidUsuario: authResult.user.uid,
+            isNewUser: isNewUser,
+            email: authResult.user.email,
+            nombreCompleto: authResult.user.displayName,
+            fotoPerfil: authResult.user.photoUrl);
+        await Navigator.of(context)
+            .pushReplacementNamed(RoutesNames.INICIO, arguments: isNewUser);
+      } on NoSuchMethodError catch (_) {} catch (error) {
+        await showDialog(
+            context: context,
+            child: _dialogoAlert(error, context, isNotInternet: false));
+      }
     }
   }
 
-  AlertDialog _dialogoAlert(error, BuildContext context) {
+  AlertDialog _dialogoAlert(dynamic error, BuildContext context,
+      {bool isNotInternet}) {
+    final size = MediaQuery.of(context).size.width;
     return AlertDialog(
-      title: Text("Error: ", style: TextStyle(
-        color: Colors.black,
-        fontSize: 25,
-        fontWeight: FontWeight.w600
-      ),),
-      content: Text(error.toString(), style: TextStyle(color: Colors.black54, fontSize: 17),textAlign: TextAlign.justify,),
+      title: const Text(
+        'Error: ',
+        style: TextStyle(
+            color: Colors.black, fontSize: 25, fontWeight: FontWeight.w600),
+      ),
+      content: Text(
+        error.toString(),
+        style: TextStyle(color: Colors.black54, fontSize: 17),
+      ),
       actions: <Widget>[
-        FlatButton(onPressed: ()=> Navigator.pop(context), child: Text("CERRAR", style: TextStyle(fontSize: 20),))
+        if (isNotInternet)
+          RaisedButton(
+              color: Colors.red,
+              onPressed: () => AppSettings.openWIFISettings(),
+              child: Text(
+                'COMPROBAR INTERNET',
+                style: TextStyle(
+                    fontSize: (size <= 360.0) ? 14 : 15, color: Colors.white),
+              )),
+        FlatButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'VOLVER',
+              style: TextStyle(fontSize: (size <= 360.0) ? 16 : 18),
+            ))
       ],
     );
   }
